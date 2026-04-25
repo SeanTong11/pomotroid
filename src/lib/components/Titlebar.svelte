@@ -8,6 +8,12 @@
   import * as m from '$paraglide/messages.js';
 
   let maximized = $state(false);
+  let suppressCloseHover = $state(false);
+
+  function blurActiveElement() {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+  }
 
   onMount(() => {
     const win = getCurrentWebviewWindow();
@@ -17,8 +23,15 @@
     const unlisten = win.onResized(async () => {
       maximized = await win.isMaximized();
     });
+    const clearSuppressedCloseHover = () => {
+      suppressCloseHover = false;
+    };
+    window.addEventListener('focus', blurActiveElement);
+    document.addEventListener('pointermove', clearSuppressedCloseHover);
     return () => {
       unlisten.then((fn) => fn());
+      window.removeEventListener('focus', blurActiveElement);
+      document.removeEventListener('pointermove', clearSuppressedCloseHover);
     };
   });
 
@@ -78,8 +91,10 @@
     getCurrentWebviewWindow().toggleMaximize();
   }
 
-  function close() {
-    getCurrentWebviewWindow().close();
+  async function close() {
+    blurActiveElement();
+    suppressCloseHover = true;
+    await getCurrentWebviewWindow().close();
   }
 </script>
 
@@ -223,7 +238,12 @@
           </svg>
         {/if}
       </button>
-      <button class="btn-icon close" onclick={close} aria-label="Close">
+      <button
+        class="btn-icon close"
+        class:suppress-hover={suppressCloseHover}
+        onclick={close}
+        aria-label="Close"
+      >
         <svg width="12" height="12" viewBox="0 0 12 12">
           <line
             x1="1"
@@ -288,7 +308,7 @@
     background: var(--color-hover);
   }
 
-  .btn-icon.close:hover {
+  .btn-icon.close:hover:not(.suppress-hover) {
     color: var(--color-background);
     background: var(--color-focus-round);
   }
