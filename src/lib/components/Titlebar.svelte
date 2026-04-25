@@ -8,11 +8,16 @@
   import * as m from '$paraglide/messages.js';
 
   let maximized = $state(false);
-  let suppressCloseHover = $state(false);
+  let suppressTitlebarHover = $state(false);
 
-  function blurActiveElement() {
+  function blurTitlebarControl() {
     const active = document.activeElement;
-    if (active instanceof HTMLElement) active.blur();
+    if (active instanceof HTMLElement && active.closest('.titlebar')) active.blur();
+  }
+
+  function suppressRestoredTitlebarState() {
+    suppressTitlebarHover = true;
+    blurTitlebarControl();
   }
 
   onMount(() => {
@@ -23,15 +28,18 @@
     const unlisten = win.onResized(async () => {
       maximized = await win.isMaximized();
     });
-    const clearSuppressedCloseHover = () => {
-      suppressCloseHover = false;
+    const clearRestoredTitlebarFocus = () => {
+      if (suppressTitlebarHover) requestAnimationFrame(blurTitlebarControl);
     };
-    window.addEventListener('focus', blurActiveElement);
-    document.addEventListener('pointermove', clearSuppressedCloseHover);
+    const clearSuppressedTitlebarHover = () => {
+      suppressTitlebarHover = false;
+    };
+    window.addEventListener('focus', clearRestoredTitlebarFocus);
+    document.addEventListener('pointermove', clearSuppressedTitlebarHover);
     return () => {
       unlisten.then((fn) => fn());
-      window.removeEventListener('focus', blurActiveElement);
-      document.removeEventListener('pointermove', clearSuppressedCloseHover);
+      window.removeEventListener('focus', clearRestoredTitlebarFocus);
+      document.removeEventListener('pointermove', clearSuppressedTitlebarHover);
     };
   });
 
@@ -80,6 +88,7 @@
   }
 
   async function minimize() {
+    suppressRestoredTitlebarState();
     if ($settings.min_to_tray) {
       await setWindowVisibility(false);
     } else {
@@ -92,8 +101,7 @@
   }
 
   async function close() {
-    blurActiveElement();
-    suppressCloseHover = true;
+    suppressRestoredTitlebarState();
     await getCurrentWebviewWindow().close();
   }
 </script>
@@ -170,7 +178,7 @@
   </Tooltip>
 {/snippet}
 
-<nav class="titlebar" data-tauri-drag-region>
+<nav class="titlebar" class:suppress-hover={suppressTitlebarHover} data-tauri-drag-region>
   <!-- Left: settings + stats buttons on Linux/Windows. On macOS the traffic
        lights live here; the action buttons move to the right side instead. -->
   {#if !isMac}
@@ -240,7 +248,6 @@
       </button>
       <button
         class="btn-icon close"
-        class:suppress-hover={suppressCloseHover}
         onclick={close}
         aria-label="Close"
       >
@@ -303,12 +310,21 @@
       background 0.15s;
   }
 
-  .btn-icon:hover {
+  .btn-icon:focus {
+    outline: none;
+  }
+
+  .btn-icon:focus-visible {
+    outline: 2px solid color-mix(in oklch, var(--color-foreground) 45%, transparent);
+    outline-offset: 2px;
+  }
+
+  .titlebar:not(.suppress-hover) .btn-icon:hover {
     color: var(--color-foreground);
     background: var(--color-hover);
   }
 
-  .btn-icon.close:hover:not(.suppress-hover) {
+  .titlebar:not(.suppress-hover) .btn-icon.close:hover {
     color: var(--color-background);
     background: var(--color-focus-round);
   }
