@@ -31,7 +31,7 @@ pub struct TimerSnapshot {
     pub elapsed_secs: u32,
     pub total_secs: u32,
     pub is_running: bool,
-    /// True if the timer has been started and then paused (elapsed > 0, not running).
+    /// True if the timer has been started and then paused, even before the first tick.
     pub is_paused: bool,
     pub work_round_number: u32,
     pub work_rounds_total: u32,
@@ -47,6 +47,7 @@ pub struct TimerSnapshot {
 struct TimerShared {
     elapsed_secs: u32,
     is_running: bool,
+    is_paused: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,7 @@ impl TimerController {
         let shared = Arc::new(Mutex::new(TimerShared {
             elapsed_secs: 0,
             is_running: false,
+            is_paused: false,
         }));
 
         // Clone handles for the event-listener thread.
@@ -122,17 +124,17 @@ impl TimerController {
 
     /// Toggle: start a fresh timer if idle, resume if paused, pause if running.
     pub fn toggle(&self) {
-        let s = self.shared.lock().unwrap();
-        if s.is_running {
-            log::info!("[timer] pause");
-            self.engine.send(TimerCommand::Pause);
-        } else if s.elapsed_secs > 0 {
-            log::info!("[timer] resume");
-            self.engine.send(TimerCommand::Resume);
-        } else {
-            log::info!("[timer] start");
-            self.engine.send(TimerCommand::Start);
+        let command = {
+            let s = self.shared.lock().unwrap();
+            toggle_command_for(&s)
+        };
+        match command {
+            TimerCommand::Pause => log::info!("[timer] pause"),
+            TimerCommand::Resume => log::info!("[timer] resume"),
+            TimerCommand::Start => log::info!("[timer] start"),
+            _ => {}
         }
+        self.engine.send(command);
     }
 
     pub fn reset(&self) {
@@ -189,7 +191,7 @@ impl TimerController {
             elapsed_secs: shared.elapsed_secs,
             total_secs: seq.current_duration_secs(&settings),
             is_running: shared.is_running,
-            is_paused: !shared.is_running && shared.elapsed_secs > 0,
+            is_paused: shared.is_paused,
             work_round_number: seq.work_round_number,
             work_rounds_total: seq.work_rounds_total,
             session_work_count: seq.session_work_count,
@@ -210,7 +212,7 @@ impl TimerController {
         self.sequence.lock().unwrap().work_rounds_total = new.long_break_interval;
         *self.settings.lock().unwrap() = new;
         let s = self.shared.lock().unwrap();
-        let is_idle = !s.is_running && s.elapsed_secs == 0;
+        let is_idle = !s.is_running && !s.is_paused && s.elapsed_secs == 0;
         drop(s);
         if is_idle {
             self.reconfigure();
@@ -246,7 +248,12 @@ fn listen_events(
         match event {
             TimerEvent::Started { total_secs } => {
                 log::info!("[timer] started total={total_secs}s");
-                shared.lock().unwrap().is_running = true;
+                {
+                    let mut s = shared.lock().unwrap();
+                    s.elapsed_secs = 0;
+                    s.is_running = true;
+                    s.is_paused = false;
+                }
                 let _ = app.emit("timer:started", serde_json::json!({ "total_secs": total_secs }));
                 if let Some(ws) = app.try_state::<Arc<WsState>>() {
                     websocket::broadcast_started(&ws, total_secs);
@@ -259,6 +266,7 @@ fn listen_events(
                     let mut s = shared.lock().unwrap();
                     s.elapsed_secs = elapsed_secs;
                     s.is_running = true;
+                    s.is_paused = false;
                 }
                 let _ = app.emit(
                     "timer:tick",
@@ -327,6 +335,7 @@ fn listen_events(
                     let mut s = shared.lock().unwrap();
                     s.elapsed_secs = 0;
                     s.is_running = false;
+                    s.is_paused = false;
                 }
 
                 // Arm the next round's duration without risking a late
@@ -400,7 +409,12 @@ fn listen_events(
 
             TimerEvent::Paused { elapsed_secs } => {
                 log::info!("[timer] paused elapsed={elapsed_secs}s");
-                shared.lock().unwrap().is_running = false;
+                {
+                    let mut s = shared.lock().unwrap();
+                    s.elapsed_secs = elapsed_secs;
+                    s.is_running = false;
+                    s.is_paused = true;
+                }
                 let _ = app.emit("timer:paused", serde_json::json!({ "elapsed_secs": elapsed_secs }));
                 if let Some(ws) = app.try_state::<Arc<WsState>>() {
                     websocket::broadcast_paused(&ws, elapsed_secs);
@@ -420,7 +434,12 @@ fn listen_events(
 
             TimerEvent::Resumed { elapsed_secs } => {
                 log::info!("[timer] resumed elapsed={elapsed_secs}s");
-                shared.lock().unwrap().is_running = true;
+                {
+                    let mut s = shared.lock().unwrap();
+                    s.elapsed_secs = elapsed_secs;
+                    s.is_running = true;
+                    s.is_paused = false;
+                }
                 let _ = app.emit("timer:resumed", serde_json::json!({ "elapsed_secs": elapsed_secs }));
                 if let Some(ws) = app.try_state::<Arc<WsState>>() {
                     websocket::broadcast_resumed(&ws, elapsed_secs);
@@ -448,6 +467,7 @@ fn listen_events(
                     let mut s = shared.lock().unwrap();
                     s.elapsed_secs = 0;
                     s.is_running = false;
+                    s.is_paused = false;
                 }
                 let snapshot = build_snapshot(&sequence, &settings, &shared);
                 let _ = app.emit("timer:reset", snapshot);
@@ -476,7 +496,12 @@ fn listen_events(
 
             TimerEvent::Suspended { elapsed_secs } => {
                 log::info!("[timer] suspended by system elapsed={elapsed_secs}s");
-                shared.lock().unwrap().is_running = false;
+                {
+                    let mut s = shared.lock().unwrap();
+                    s.elapsed_secs = elapsed_secs;
+                    s.is_running = false;
+                    s.is_paused = true;
+                }
                 let _ = app.emit(
                     "timer:suspended",
                     serde_json::json!({ "elapsed_secs": elapsed_secs }),
@@ -511,9 +536,35 @@ fn build_snapshot(
         elapsed_secs: sh.elapsed_secs,
         total_secs: seq.current_duration_secs(&s),
         is_running: sh.is_running,
-        is_paused: !sh.is_running && sh.elapsed_secs > 0,
+        is_paused: sh.is_paused,
         work_round_number: seq.work_round_number,
         work_rounds_total: seq.work_rounds_total,
         session_work_count: seq.session_work_count,
+    }
+}
+
+fn toggle_command_for(shared: &TimerShared) -> TimerCommand {
+    if shared.is_running {
+        TimerCommand::Pause
+    } else if shared.is_paused || shared.elapsed_secs > 0 {
+        TimerCommand::Resume
+    } else {
+        TimerCommand::Start
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn toggle_resumes_zero_elapsed_paused_state() {
+        let shared = TimerShared {
+            elapsed_secs: 0,
+            is_running: false,
+            is_paused: true,
+        };
+
+        assert!(matches!(toggle_command_for(&shared), TimerCommand::Resume));
     }
 }

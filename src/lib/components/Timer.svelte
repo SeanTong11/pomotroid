@@ -7,6 +7,7 @@
     timerRestartRound,
     timerSkip,
     getTimerState,
+    onTimerStarted,
     onTimerTick,
     onTimerPaused,
     onTimerResumed,
@@ -55,6 +56,15 @@
       timerState.set(initial);
 
       cleanups.push(
+        await onTimerStarted(({ total_secs }) => {
+          timerState.update((s) => ({
+            ...s,
+            elapsed_secs: 0,
+            total_secs,
+            is_running: true,
+            is_paused: false,
+          }));
+        }),
         await onTimerTick(({ elapsed_secs, total_secs }) => {
           timerState.update((s) => ({
             ...s,

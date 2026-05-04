@@ -110,6 +110,10 @@ export const onTimerTick = (
 ): Promise<UnlistenFn> =>
   listen<{ elapsed_secs: number; total_secs: number }>('timer:tick', (e) => cb(e.payload));
 
+export const onTimerStarted = (
+  cb: (payload: { total_secs: number }) => void
+): Promise<UnlistenFn> => listen<{ total_secs: number }>('timer:started', (e) => cb(e.payload));
+
 export const onTimerPaused = (
   cb: (payload: { elapsed_secs: number }) => void
 ): Promise<UnlistenFn> => listen<{ elapsed_secs: number }>('timer:paused', (e) => cb(e.payload));
