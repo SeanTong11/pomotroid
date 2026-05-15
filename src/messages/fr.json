@@ -65,6 +65,8 @@
   "system_toggle_min_tray_desc": "Masquer la fenêtre dans la barre lors de la réduction.",
   "system_toggle_close_tray": "Fermer dans la barre des tâches",
   "system_toggle_close_tray_desc": "Se masquer dans la barre plutôt que de quitter lors de la fermeture.",
+  "system_toggle_floating_widget": "Widget flottant",
+  "system_toggle_floating_widget_desc": "Afficher un widget de minuteur transparent lorsque la fenêtre principale est réduite ou masquée.",
   "system_group_integrations": "Intégrations",
   "system_toggle_websocket": "Serveur WebSocket",
   "system_toggle_websocket_desc": "Exposer un endpoint WebSocket local pour les intégrations externes (port {port}).",

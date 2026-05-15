@@ -65,6 +65,8 @@
   "system_toggle_min_tray_desc": "Küçültüldüğünde pencereyi tepside gizle.",
   "system_toggle_close_tray": "Tepsiye Kapat",
   "system_toggle_close_tray_desc": "Pencere kapatıldığında çıkmak yerine tepside gizle.",
+  "system_toggle_floating_widget": "Yüzen Araç",
+  "system_toggle_floating_widget_desc": "Ana pencere küçültüldüğünde veya gizlendiğinde şeffaf bir zamanlayıcı aracı göster.",
   "system_group_integrations": "Entegrasyonlar",
   "system_toggle_websocket": "WebSocket Sunucusu",
   "system_toggle_websocket_desc": "Harici entegrasyonlar için yerel bir WebSocket uç noktası sun (port {port}).",

@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow';
-  import { setWindowVisibility } from '$lib/ipc';
-  import { settings } from '$lib/stores/settings';
+  import { minimizeOrHideWindow } from '$lib/ipc';
   import { isMac } from '$lib/utils/platform';
   import Tooltip from './Tooltip.svelte';
   import * as m from '$paraglide/messages.js';
@@ -89,11 +88,7 @@
 
   async function minimize() {
     suppressRestoredTitlebarState();
-    if ($settings.min_to_tray) {
-      await setWindowVisibility(false);
-    } else {
-      await getCurrentWebviewWindow().minimize();
-    }
+    await minimizeOrHideWindow();
   }
 
   function toggleMaximize() {
@@ -246,11 +241,7 @@
           </svg>
         {/if}
       </button>
-      <button
-        class="btn-icon close"
-        onclick={close}
-        aria-label="Close"
-      >
+      <button class="btn-icon close" onclick={close} aria-label="Close">
         <svg width="12" height="12" viewBox="0 0 12 12">
           <line
             x1="1"

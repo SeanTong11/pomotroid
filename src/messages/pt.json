@@ -65,6 +65,8 @@
   "system_toggle_min_tray_desc": "Ocultar a janela na bandeja ao minimizar.",
   "system_toggle_close_tray": "Fechar para a Bandeja",
   "system_toggle_close_tray_desc": "Ocultar na bandeja em vez de sair ao fechar a janela.",
+  "system_toggle_floating_widget": "Widget Flutuante",
+  "system_toggle_floating_widget_desc": "Mostra um widget de temporizador transparente quando a janela principal está minimizada ou oculta.",
   "system_group_integrations": "Integrações",
   "system_toggle_websocket": "Servidor WebSocket",
   "system_toggle_websocket_desc": "Expor um endpoint WebSocket local para integrações externas (porta {port}).",

@@ -90,6 +90,13 @@ const MIGRATION_6: &str = "
     INSERT INTO schema_version VALUES (6);
 ";
 
+/// Seeds the floating widget feature flag for users upgrading from a version
+/// that did not have the setting. The feature is opt-in, so the default is false.
+const MIGRATION_7: &str = "
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('floating_widget_enabled', 'false');
+    INSERT INTO schema_version VALUES (7);
+";
+
 /// Apply any pending migrations. Each migration is wrapped in a transaction
 /// so a partial failure leaves the database unchanged.
 pub fn run(conn: &Connection) -> Result<()> {
@@ -131,6 +138,12 @@ pub fn run(conn: &Connection) -> Result<()> {
         log::info!("[db/migrations] MIGRATION_6 complete");
     }
 
+    if version < 7 {
+        log::info!("[db/migrations] applying MIGRATION_7: seed floating widget setting");
+        conn.execute_batch(&format!("BEGIN; {MIGRATION_7} COMMIT;"))?;
+        log::info!("[db/migrations] MIGRATION_7 complete");
+    }
+
     Ok(())
 }
 
@@ -166,7 +179,21 @@ mod tests {
         let v: i64 = conn
             .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 6);
+        assert_eq!(v, 7);
+    }
+
+    #[test]
+    fn floating_widget_setting_seeded() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn).unwrap();
+        let value: String = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'floating_widget_enabled'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(value, "false");
     }
 
     #[test]
@@ -183,5 +210,59 @@ mod tests {
                 .unwrap();
             assert_eq!(count, 1, "table '{table}' was not created");
         }
+    }
+
+    #[test]
+    fn schema_version_is_7_after_fresh_run() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn).unwrap();
+        let v: i64 = conn
+            .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, 7, "schema version must be 7 after a fresh migration run");
+    }
+
+    #[test]
+    fn migration_7_seeds_widget_setting_when_upgrading_from_v6() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("
+            BEGIN;
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            CREATE TABLE settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
+            INSERT INTO schema_version VALUES (6);
+            COMMIT;
+        ").unwrap();
+
+        run(&conn).unwrap();
+
+        let value: String = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'floating_widget_enabled'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(value, "false", "MIGRATION_7 must seed floating_widget_enabled=false");
+    }
+
+    #[test]
+    fn migration_preserves_existing_custom_values() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES ('floating_widget_enabled', 'true')
+             ON CONFLICT(key) DO UPDATE SET value = 'true'",
+            [],
+        ).unwrap();
+        // Re-running migrations must not overwrite the user-set value.
+        run(&conn).unwrap();
+        let value: String = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'floating_widget_enabled'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(value, "true", "migration must not overwrite a user-set value");
     }
 }

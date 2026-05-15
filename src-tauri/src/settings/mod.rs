@@ -19,6 +19,7 @@ pub struct Settings {
     pub tray_icon_enabled: bool,
     pub min_to_tray: bool,
     pub min_to_tray_on_close: bool,
+    pub floating_widget_enabled: bool,
     pub notifications_enabled: bool,
     /// Number of work rounds before a long break.
     pub long_break_interval: u32,
@@ -77,6 +78,7 @@ impl Default for Settings {
             tray_icon_enabled: false,
             min_to_tray: false,
             min_to_tray_on_close: false,
+            floating_widget_enabled: false,
             notifications_enabled: false,
             long_break_interval: 4,
             short_breaks_enabled: true,
@@ -186,6 +188,7 @@ pub fn load(conn: &Connection) -> Result<Settings> {
         tray_icon_enabled: parse_bool(&map, "tray_icon_enabled", d.tray_icon_enabled),
         min_to_tray: parse_bool(&map, "min_to_tray", d.min_to_tray),
         min_to_tray_on_close: parse_bool(&map, "min_to_tray_on_close", d.min_to_tray_on_close),
+        floating_widget_enabled: parse_bool(&map, "floating_widget_enabled", d.floating_widget_enabled),
         notifications_enabled: parse_bool(&map, "notifications", d.notifications_enabled),
         long_break_interval: parse_u32(&map, "work_rounds", d.long_break_interval),
         short_breaks_enabled: parse_bool(&map, "short_breaks_enabled", d.short_breaks_enabled),
@@ -335,6 +338,7 @@ mod tests {
             assert_eq!(s.shortcut_restart, "Control+F4");
         }
         assert!(!s.always_on_top);
+        assert!(!s.floating_widget_enabled);
         assert!(!s.websocket_enabled);
         assert_eq!(s.websocket_port, 1314);
         assert_eq!(s.theme_mode, "auto");
@@ -468,5 +472,81 @@ mod tests {
         }
         let s = load(&conn).unwrap();
         assert!(!s.auto_start_work, "auto_start_work must be false after repeated false writes");
+    }
+
+    #[test]
+    fn save_and_reload_floating_widget_enabled() {
+        let conn = setup();
+        seed_defaults(&conn).unwrap();
+        save_setting(&conn, "floating_widget_enabled", "true").unwrap();
+        let s = load(&conn).unwrap();
+        assert!(s.floating_widget_enabled);
+    }
+
+    #[test]
+    fn save_and_reload_break_always_on_top() {
+        let conn = setup();
+        seed_defaults(&conn).unwrap();
+        save_setting(&conn, "break_always_on_top", "true").unwrap();
+        let s = load(&conn).unwrap();
+        assert!(s.break_always_on_top);
+    }
+
+    #[test]
+    fn window_position_defaults_to_none() {
+        let conn = setup();
+        seed_defaults(&conn).unwrap();
+        let s = load(&conn).unwrap();
+        assert!(s.window_x.is_none());
+        assert!(s.window_y.is_none());
+        assert!(s.window_width.is_none());
+        assert!(s.window_height.is_none());
+    }
+
+    #[test]
+    fn window_position_save_and_reload() {
+        let conn = setup();
+        seed_defaults(&conn).unwrap();
+        save_setting(&conn, "window_x", "100").unwrap();
+        save_setting(&conn, "window_y", "-50").unwrap();
+        save_setting(&conn, "window_width", "800").unwrap();
+        save_setting(&conn, "window_height", "600").unwrap();
+        let s = load(&conn).unwrap();
+        assert_eq!(s.window_x, Some(100));
+        assert_eq!(s.window_y, Some(-50));
+        assert_eq!(s.window_width, Some(800));
+        assert_eq!(s.window_height, Some(600));
+    }
+
+    #[test]
+    fn volume_clamped_to_zero() {
+        let conn = setup();
+        seed_defaults(&conn).unwrap();
+        save_setting(&conn, "volume", "0").unwrap();
+        let s = load(&conn).unwrap();
+        assert!((s.volume - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn get_setting_returns_value_and_none_for_missing() {
+        let conn = setup();
+        seed_defaults(&conn).unwrap();
+        assert_eq!(
+            get_setting(&conn, "floating_widget_enabled"),
+            Some("false".to_string())
+        );
+        assert!(get_setting(&conn, "nonexistent_key").is_none());
+    }
+
+    #[test]
+    fn invalid_bool_value_falls_back_to_default() {
+        let conn = setup();
+        seed_defaults(&conn).unwrap();
+        save_setting(&conn, "always_on_top", "yes").unwrap();
+        let s = load(&conn).unwrap();
+        assert!(
+            !s.always_on_top,
+            "non-boolean string must fall back to default (false)"
+        );
     }
 }

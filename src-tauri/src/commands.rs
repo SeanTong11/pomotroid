@@ -16,6 +16,8 @@ use crate::themes::{self, Theme};
 use crate::timer::{TimerController, TimerSnapshot};
 use crate::tray::{self, TrayState};
 use crate::websocket::{self, WsState};
+use crate::widget;
+use crate::window as app_window;
 
 // ---------------------------------------------------------------------------
 // CMD-01 — Timer commands
@@ -138,7 +140,12 @@ pub fn settings_set(
             let effective_aot = new_settings.always_on_top
                 && !(new_settings.break_always_on_top && is_break);
             let _ = window.set_always_on_top(effective_aot);
+            widget::sync_always_on_top(&app, &new_settings, &snap.round_type);
         }
+    }
+
+    if key == "floating_widget_enabled" {
+        widget::sync_for_main_window(&app);
     }
 
     // Sync tray countdown mode when the dial setting changes, then immediately
@@ -265,6 +272,7 @@ pub fn settings_reset_defaults(
     // After reset, defaults have tray_icon_enabled=false and min_to_tray=false,
     // so destroy any active tray icon.
     tray::destroy_tray(&tray_state);
+    widget::hide(&app);
 
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
 
@@ -386,16 +394,51 @@ pub fn stats_get_heatmap(db: State<'_, DbState>) -> Result<HeatmapStats, String>
 #[tauri::command]
 pub fn window_set_visibility(visible: bool, app: AppHandle) -> Result<(), String> {
     log::debug!("[window] set visibility={visible}");
+    if visible {
+        app_window::restore_main_window(&app)?;
+    } else {
+        let window = app
+            .get_webview_window("main")
+            .ok_or_else(|| "main window not found".to_string())?;
+        window.hide().map_err(|e| e.to_string())?;
+        widget::show_if_enabled(&app);
+    }
+    Ok(())
+}
+
+/// Apply the app's minimize behavior from the custom titlebar.
+///
+/// If minimize-to-tray is enabled, the main window is hidden. Otherwise it is
+/// minimized. In both cases the floating widget is shown when enabled.
+#[tauri::command]
+pub fn window_minimize_or_hide(db: State<'_, DbState>, app: AppHandle) -> Result<(), String> {
+    let settings = {
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        settings::load(&conn).map_err(|e| e.to_string())?
+    };
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| "main window not found".to_string())?;
-    if visible {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
-    } else {
+
+    if settings.min_to_tray {
         window.hide().map_err(|e| e.to_string())?;
+    } else {
+        window.minimize().map_err(|e| e.to_string())?;
     }
+    widget::show_if_enabled(&app);
     Ok(())
+}
+
+/// Restore the main window and hide the floating widget.
+#[tauri::command]
+pub fn window_restore_main(app: AppHandle) -> Result<(), String> {
+    app_window::restore_main_window(&app)
+}
+
+/// Exit the application from a frontend-owned native context menu.
+#[tauri::command]
+pub fn app_exit(app: AppHandle) {
+    app.exit(0);
 }
 
 // ---------------------------------------------------------------------------
@@ -787,4 +830,3 @@ mod tests {
         assert_eq!(n, 0);
     }
 }
-

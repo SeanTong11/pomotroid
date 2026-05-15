@@ -223,6 +223,13 @@
   <div class="group-heading">{m.system_group_window()}</div>
 
   <SettingsToggle
+    label={m.system_toggle_floating_widget()}
+    description={m.system_toggle_floating_widget_desc()}
+    checked={$settings.floating_widget_enabled}
+    onclick={() => toggle('floating_widget_enabled', $settings.floating_widget_enabled)}
+  />
+
+  <SettingsToggle
     label={m.system_toggle_aot()}
     description={m.system_toggle_aot_desc()}
     checked={$settings.always_on_top}

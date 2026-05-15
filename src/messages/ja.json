@@ -65,6 +65,8 @@
   "system_toggle_min_tray_desc": "最小化時にウィンドウをトレイに隠します。",
   "system_toggle_close_tray": "トレイに閉じる",
   "system_toggle_close_tray_desc": "ウィンドウを閉じるときに終了せずにトレイに隠します。",
+  "system_toggle_floating_widget": "フローティングウィジェット",
+  "system_toggle_floating_widget_desc": "メインウィンドウが最小化または非表示のときに透明なタイマーウィジェットを表示します。",
   "system_group_integrations": "統合",
   "system_toggle_websocket": "WebSocketサーバー",
   "system_toggle_websocket_desc": "外部連携用のローカルWebSocketエンドポイントを公開します（ポート {port}）。",

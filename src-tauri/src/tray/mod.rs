@@ -26,6 +26,8 @@ use tauri::{
 };
 
 use crate::timer::TimerController;
+use crate::widget;
+use crate::window as app_window;
 use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
 // ---------------------------------------------------------------------------
@@ -289,12 +291,13 @@ pub fn create_tray(app: &AppHandle, state: &Arc<TrayState>) {
                         TrayWindowAction::Hide => {
                             log::debug!("[tray] left-click → hide");
                             let _ = window.hide();
+                            widget::show_if_enabled(app);
                         }
                         TrayWindowAction::Restore => {
                             log::debug!("[tray] left-click → show");
-                            let _ = window.show();
-                            let _ = window.unminimize();
-                            let _ = window.set_focus();
+                            if let Err(e) = app_window::restore_main_window(app) {
+                                log::warn!("[tray] failed to restore main window: {e}");
+                            }
                         }
                     }
                 }
@@ -319,10 +322,8 @@ pub fn create_tray(app: &AppHandle, state: &Arc<TrayState>) {
                 }
                 "show" => {
                     log::info!("[tray] show");
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.unminimize();
-                        let _ = window.set_focus();
+                    if let Err(e) = app_window::restore_main_window(app) {
+                        log::warn!("[tray] failed to restore main window: {e}");
                     }
                 }
                 "exit" => {

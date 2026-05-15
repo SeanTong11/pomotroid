@@ -44,6 +44,9 @@ export const notificationShow = (title: string, body: string) =>
 
 export const setWindowVisibility = (visible: boolean) =>
   invoke<void>('window_set_visibility', { visible });
+export const minimizeOrHideWindow = () => invoke<void>('window_minimize_or_hide');
+export const restoreMainWindow = () => invoke<void>('window_restore_main');
+export const appExit = () => invoke<void>('app_exit');
 
 // --- Audio commands ---
 

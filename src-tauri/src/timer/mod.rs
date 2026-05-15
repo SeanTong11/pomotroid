@@ -12,6 +12,7 @@ use crate::db::{queries, DbState};
 use crate::settings::Settings;
 use crate::tray::{self, TrayState};
 use crate::websocket::{self, WsState};
+use crate::widget;
 
 use engine::{EngineHandle, TimerCommand, TimerEvent};
 use sequence::{RoundType, SequenceState};
@@ -315,12 +316,19 @@ fn listen_events(
                 }
 
                 // Advance sequence.
-                let (next_round, next_duration, auto_start_work, auto_start_break) = {
+                let (
+                    next_round,
+                    next_duration,
+                    auto_start_work,
+                    auto_start_break,
+                    settings_snapshot,
+                ) = {
                     let mut seq = sequence.lock().unwrap();
                     let s = settings.lock().unwrap();
                     let (rt, dur) = seq.advance(&s);
-                    (rt, dur, s.auto_start_work, s.auto_start_break)
+                    (rt, dur, s.auto_start_work, s.auto_start_break, s.clone())
                 };
+                let next_round_type = next_round.as_str();
 
                 // Reset shared state for the new round.
                 {
@@ -356,24 +364,22 @@ fn listen_events(
                 // Lower-priority-during-breaks: when always_on_top is on and
                 // break_always_on_top is enabled, disable always-on-top for
                 // breaks and restore it when work resumes.
-                let (always_on_top, break_always_on_top) = {
-                    let s = settings.lock().unwrap();
-                    (s.always_on_top, s.break_always_on_top)
-                };
-                if always_on_top {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let is_break = next_round != RoundType::Work;
-                        let _ = window.set_always_on_top(!(break_always_on_top && is_break));
-                    }
+                let effective_always_on_top = widget::effective_always_on_top(
+                    settings_snapshot.always_on_top,
+                    settings_snapshot.break_always_on_top,
+                    next_round_type,
+                );
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_always_on_top(effective_always_on_top);
                 }
+                widget::sync_always_on_top(&app, &settings_snapshot, next_round_type);
 
                 // Update tray to reflect new round type and reset progress.
                 // Use -1.0 (same as initialisation and Reset) so the very
                 // first tick of the new round always passes the ≥1% threshold,
                 // regardless of how long the round is.  Using 0.0 here caused
                 // a ≥15-second blank period before the arc started animating.
-                let rt = sequence.lock().unwrap().current_round.as_str().to_string();
-                tray::update_icon(&tray, &rt, false, 0.0);
+                tray::update_icon(&tray, next_round_type, false, 0.0);
                 last_tray_progress = -1.0;
 
                 // Broadcast round-change to any connected WebSocket clients.
@@ -388,7 +394,7 @@ fn listen_events(
                     _ => auto_start_break,
                 };
                 if should_auto {
-                    log::debug!("[timer] auto-starting {}", next_round.as_str());
+                    log::debug!("[timer] auto-starting {next_round_type}");
                     engine.send(TimerCommand::Start);
                 } else {
                     // Timer is idle waiting for the user to start the new round.

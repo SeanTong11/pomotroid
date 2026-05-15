@@ -8,6 +8,8 @@ pub mod themes;
 pub mod timer;
 pub mod tray;
 pub mod websocket;
+pub mod widget;
+pub mod window;
 
 use std::sync::Arc;
 
@@ -17,6 +19,7 @@ use tauri_plugin_log::{Builder as LogBuilder, RotationStrategy, Target, TargetKi
 
 use commands::{
     accessibility_trusted,
+    app_exit,
     tray_supported,
     app_version,
     check_update,
@@ -30,7 +33,7 @@ use commands::{
     stats_get_detailed, stats_get_heatmap,
     themes_list,
     timer_get_state, timer_reset, timer_restart_round, timer_skip, timer_toggle,
-    window_set_visibility,
+    window_minimize_or_hide, window_restore_main, window_set_visibility,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -333,9 +336,10 @@ pub fn run() {
                         if hide {
                             api.prevent_close();
                             let _ = win_for_close.hide();
+                            widget::show_if_enabled(&app_for_close);
                         } else {
                             // Main window is truly closing — close child windows if open.
-                            for label in ["settings", "stats"] {
+                            for label in ["settings", "stats", widget::WIDGET_LABEL] {
                                 if let Some(win) = app_for_close.get_webview_window(label) {
                                     let _ = win.close();
                                 }
@@ -359,6 +363,17 @@ pub fn run() {
                                 let _ = settings::save_setting(&conn, "window_y", &pos.y.to_string());
                             }
                         }
+                    }
+                    tauri::WindowEvent::Focused(false) => {
+                        let app_for_focus = app_for_close.clone();
+                        tauri::async_runtime::spawn(async move {
+                            // Tauri does not emit a direct minimized event here.
+                            // Losing focus can arrive before the OS updates the
+                            // minimized flag, so delay briefly before syncing the
+                            // widget from is_minimized().
+                            tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+                            widget::sync_for_main_window(&app_for_focus);
+                        });
                     }
                     _ => {}
                 }
@@ -386,6 +401,9 @@ pub fn run() {
             stats_get_heatmap,
             // Window
             window_set_visibility,
+            window_minimize_or_hide,
+            window_restore_main,
+            app_exit,
             // Shortcuts
             shortcuts_reload,
             // Audio
@@ -406,4 +424,71 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::Value;
+
+    fn capability_windows(path: &str, raw: &str) -> Vec<String> {
+        serde_json::from_str::<Value>(raw)
+            .unwrap_or_else(|e| panic!("{path} must be valid JSON: {e}"))
+            .get("windows")
+            .and_then(Value::as_array)
+            .unwrap_or_else(|| panic!("{path} must define windows"))
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .unwrap_or_else(|| panic!("{path} windows must be strings"))
+                    .to_string()
+            })
+            .collect()
+    }
+
+    fn capability_permissions(path: &str, raw: &str) -> Vec<String> {
+        serde_json::from_str::<Value>(raw)
+            .unwrap_or_else(|e| panic!("{path} must be valid JSON: {e}"))
+            .get("permissions")
+            .and_then(Value::as_array)
+            .unwrap_or_else(|| panic!("{path} must define permissions"))
+            .iter()
+            .map(|v| {
+                v.as_str()
+                    .unwrap_or_else(|| panic!("{path} permissions must be strings"))
+                    .to_string()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn widget_uses_separate_limited_capability() {
+        let default_raw = include_str!("../capabilities/default.json");
+        let widget_raw = include_str!("../capabilities/widget.json");
+
+        let default_windows = capability_windows("default capability", default_raw);
+        assert!(!default_windows.iter().any(|w| w == "widget"));
+
+        let widget_windows = capability_windows("widget capability", widget_raw);
+        assert_eq!(widget_windows, vec!["widget"]);
+
+        let widget_permissions = capability_permissions("widget capability", widget_raw);
+        assert!(widget_permissions.contains(&"core:event:allow-listen".to_string()));
+        assert!(widget_permissions.contains(&"core:event:allow-unlisten".to_string()));
+        assert!(widget_permissions.contains(&"core:window:allow-start-dragging".to_string()));
+        assert!(widget_permissions.contains(&"core:menu:allow-new".to_string()));
+        assert!(widget_permissions.contains(&"core:menu:allow-popup".to_string()));
+
+        for forbidden in [
+            "dialog:default",
+            "dialog:allow-open",
+            "updater:default",
+            "core:webview:allow-create-webview-window",
+            "opener:default",
+        ] {
+            assert!(
+                !widget_permissions.iter().any(|p| p == forbidden),
+                "widget capability must not include {forbidden}"
+            );
+        }
+    }
 }

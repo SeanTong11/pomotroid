@@ -2,19 +2,10 @@
   // Orchestrator component. Subscribes to timer events, owns keyboard listener,
   // and renders TimerDial + TimerDisplay + TimerFooter.
   import { onMount } from 'svelte';
-  import {
-    timerToggle,
-    timerRestartRound,
-    timerSkip,
-    getTimerState,
-    onTimerTick,
-    onTimerPaused,
-    onTimerResumed,
-    onRoundChange,
-    onTimerReset,
-  } from '$lib/ipc';
+  import { timerToggle, timerRestartRound, timerSkip, notificationShow } from '$lib/ipc';
   import { timerState } from '$lib/stores/timer';
   import { settings } from '$lib/stores/settings';
+  import { syncTimerState } from '$lib/utils/timerStateSync';
   import { fade } from 'svelte/transition';
   import TimerDial from './TimerDial.svelte';
   import TimerDisplay from './TimerDisplay.svelte';
@@ -23,7 +14,6 @@
   import Tooltip from './Tooltip.svelte';
   import type { UnlistenFn } from '@tauri-apps/api/event';
   import * as m from '$paraglide/messages.js';
-  import { notificationShow } from '$lib/ipc';
 
   interface Props {
     isCompact?: boolean;
@@ -51,59 +41,31 @@
 
     // Async setup: hydrate state and register event listeners.
     (async () => {
-      const initial = await getTimerState();
-      timerState.set(initial);
-
       cleanups.push(
-        await onTimerTick(({ elapsed_secs, total_secs }) => {
-          timerState.update((s) => ({
-            ...s,
-            elapsed_secs,
-            total_secs,
-            is_running: true,
-            is_paused: false,
-          }));
-        }),
-        await onTimerPaused(({ elapsed_secs }) => {
-          timerState.update((s) => ({
-            ...s,
-            elapsed_secs,
-            is_running: false,
-            is_paused: true,
-          }));
-        }),
-        await onTimerResumed(({ elapsed_secs }) => {
-          timerState.update((s) => ({
-            ...s,
-            elapsed_secs,
-            is_running: true,
-            is_paused: false,
-          }));
-        }),
-        await onRoundChange((snap) => {
-          timerState.set(snap);
-          if ($settings.notifications_enabled) {
-            let title: string;
-            let body: string;
-            if (snap.round_type === 'work') {
-              const afterBreak =
-                snap.previous_round_type === 'short-break' ||
-                snap.previous_round_type === 'long-break';
-              title = afterBreak ? m.notification_work_title() : m.notification_work_start_title();
-              body = afterBreak ? m.notification_work_body() : m.notification_work_start_body();
-            } else if (snap.round_type === 'short-break') {
-              title = m.notification_short_break_title();
-              body = m.notification_short_break_body();
-            } else {
-              title = m.notification_long_break_title();
-              body = m.notification_long_break_body();
+        ...(await syncTimerState({
+          onRoundChange: (snap) => {
+            if ($settings.notifications_enabled) {
+              let title: string;
+              let body: string;
+              if (snap.round_type === 'work') {
+                const afterBreak =
+                  snap.previous_round_type === 'short-break' ||
+                  snap.previous_round_type === 'long-break';
+                title = afterBreak
+                  ? m.notification_work_title()
+                  : m.notification_work_start_title();
+                body = afterBreak ? m.notification_work_body() : m.notification_work_start_body();
+              } else if (snap.round_type === 'short-break') {
+                title = m.notification_short_break_title();
+                body = m.notification_short_break_body();
+              } else {
+                title = m.notification_long_break_title();
+                body = m.notification_long_break_body();
+              }
+              notificationShow(title, body).catch(() => {});
             }
-            notificationShow(title, body).catch(() => {});
-          }
-        }),
-        await onTimerReset((snap) => {
-          timerState.set(snap);
-        })
+          },
+        }))
       );
     })();
 

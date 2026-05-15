@@ -65,6 +65,8 @@
   "system_toggle_min_tray_desc": "最小化时将窗口隐藏到托盘。",
   "system_toggle_close_tray": "关闭到托盘",
   "system_toggle_close_tray_desc": "关闭窗口时隐藏到托盘而不退出。",
+  "system_toggle_floating_widget": "悬浮小组件",
+  "system_toggle_floating_widget_desc": "主窗口最小化或隐藏时显示透明计时器小组件。",
   "system_group_integrations": "集成",
   "system_toggle_websocket": "WebSocket 服务器",
   "system_toggle_websocket_desc": "为外部集成公开本地 WebSocket 端点（端口 {port}）。",
