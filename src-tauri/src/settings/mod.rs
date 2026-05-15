@@ -20,6 +20,8 @@ pub struct Settings {
     pub min_to_tray: bool,
     pub min_to_tray_on_close: bool,
     pub floating_widget_enabled: bool,
+    pub floating_widget_on_minimize: bool,
+    pub floating_widget_on_close: bool,
     pub notifications_enabled: bool,
     /// Number of work rounds before a long break.
     pub long_break_interval: u32,
@@ -79,6 +81,8 @@ impl Default for Settings {
             min_to_tray: false,
             min_to_tray_on_close: false,
             floating_widget_enabled: false,
+            floating_widget_on_minimize: true,
+            floating_widget_on_close: false,
             notifications_enabled: false,
             long_break_interval: 4,
             short_breaks_enabled: true,
@@ -189,6 +193,8 @@ pub fn load(conn: &Connection) -> Result<Settings> {
         min_to_tray: parse_bool(&map, "min_to_tray", d.min_to_tray),
         min_to_tray_on_close: parse_bool(&map, "min_to_tray_on_close", d.min_to_tray_on_close),
         floating_widget_enabled: parse_bool(&map, "floating_widget_enabled", d.floating_widget_enabled),
+        floating_widget_on_minimize: parse_bool(&map, "floating_widget_on_minimize", d.floating_widget_on_minimize),
+        floating_widget_on_close: parse_bool(&map, "floating_widget_on_close", d.floating_widget_on_close),
         notifications_enabled: parse_bool(&map, "notifications", d.notifications_enabled),
         long_break_interval: parse_u32(&map, "work_rounds", d.long_break_interval),
         short_breaks_enabled: parse_bool(&map, "short_breaks_enabled", d.short_breaks_enabled),
@@ -339,6 +345,8 @@ mod tests {
         }
         assert!(!s.always_on_top);
         assert!(!s.floating_widget_enabled);
+        assert!(s.floating_widget_on_minimize);
+        assert!(!s.floating_widget_on_close);
         assert!(!s.websocket_enabled);
         assert_eq!(s.websocket_port, 1314);
         assert_eq!(s.theme_mode, "auto");
@@ -481,6 +489,17 @@ mod tests {
         save_setting(&conn, "floating_widget_enabled", "true").unwrap();
         let s = load(&conn).unwrap();
         assert!(s.floating_widget_enabled);
+    }
+
+    #[test]
+    fn save_and_reload_floating_widget_triggers() {
+        let conn = setup();
+        seed_defaults(&conn).unwrap();
+        save_setting(&conn, "floating_widget_on_minimize", "false").unwrap();
+        save_setting(&conn, "floating_widget_on_close", "true").unwrap();
+        let s = load(&conn).unwrap();
+        assert!(!s.floating_widget_on_minimize);
+        assert!(s.floating_widget_on_close);
     }
 
     #[test]

@@ -97,6 +97,15 @@ const MIGRATION_7: &str = "
     INSERT INTO schema_version VALUES (7);
 ";
 
+/// Seeds floating widget trigger preferences. Showing on minimize preserves the
+/// existing behavior when the feature is enabled; showing on close-to-tray is
+/// opt-in because users may want the app to stay only in the tray.
+const MIGRATION_8: &str = "
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('floating_widget_on_minimize', 'true');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('floating_widget_on_close', 'false');
+    INSERT INTO schema_version VALUES (8);
+";
+
 /// Apply any pending migrations. Each migration is wrapped in a transaction
 /// so a partial failure leaves the database unchanged.
 pub fn run(conn: &Connection) -> Result<()> {
@@ -144,6 +153,12 @@ pub fn run(conn: &Connection) -> Result<()> {
         log::info!("[db/migrations] MIGRATION_7 complete");
     }
 
+    if version < 8 {
+        log::info!("[db/migrations] applying MIGRATION_8: seed floating widget trigger settings");
+        conn.execute_batch(&format!("BEGIN; {MIGRATION_8} COMMIT;"))?;
+        log::info!("[db/migrations] MIGRATION_8 complete");
+    }
+
     Ok(())
 }
 
@@ -179,7 +194,7 @@ mod tests {
         let v: i64 = conn
             .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 7);
+        assert_eq!(v, 8);
     }
 
     #[test]
@@ -194,6 +209,29 @@ mod tests {
             )
             .unwrap();
         assert_eq!(value, "false");
+    }
+
+    #[test]
+    fn floating_widget_trigger_settings_seeded() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn).unwrap();
+        let on_minimize: String = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'floating_widget_on_minimize'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let on_close: String = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'floating_widget_on_close'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(on_minimize, "true");
+        assert_eq!(on_close, "false");
     }
 
     #[test]
@@ -213,13 +251,13 @@ mod tests {
     }
 
     #[test]
-    fn schema_version_is_7_after_fresh_run() {
+    fn schema_version_is_8_after_fresh_run() {
         let conn = Connection::open_in_memory().unwrap();
         run(&conn).unwrap();
         let v: i64 = conn
             .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 7, "schema version must be 7 after a fresh migration run");
+        assert_eq!(v, 8, "schema version must be 8 after a fresh migration run");
     }
 
     #[test]
@@ -264,5 +302,39 @@ mod tests {
             )
             .unwrap();
         assert_eq!(value, "true", "migration must not overwrite a user-set value");
+    }
+
+    #[test]
+    fn migration_8_preserves_existing_widget_trigger_values() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("
+            BEGIN;
+            CREATE TABLE schema_version (version INTEGER NOT NULL);
+            CREATE TABLE settings (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);
+            INSERT INTO schema_version VALUES (7);
+            INSERT INTO settings (key, value) VALUES ('floating_widget_on_minimize', 'false');
+            INSERT INTO settings (key, value) VALUES ('floating_widget_on_close', 'true');
+            COMMIT;
+        ").unwrap();
+
+        run(&conn).unwrap();
+
+        let on_minimize: String = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'floating_widget_on_minimize'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let on_close: String = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'floating_widget_on_close'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(on_minimize, "false");
+        assert_eq!(on_close, "true");
     }
 }

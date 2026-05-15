@@ -12,15 +12,45 @@ pub enum WidgetVisibilityAction {
     Hide,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WidgetDisplayTrigger {
+    Minimize,
+    CloseToTray,
+}
+
 pub fn widget_visibility_action(
-    enabled: bool,
+    can_show: bool,
     main_visible: bool,
     main_minimized: bool,
 ) -> WidgetVisibilityAction {
-    if enabled && (!main_visible || main_minimized) {
+    if can_show && (!main_visible || main_minimized) {
         WidgetVisibilityAction::Show
     } else {
         WidgetVisibilityAction::Hide
+    }
+}
+
+pub fn widget_trigger_enabled(settings: &Settings, trigger: WidgetDisplayTrigger) -> bool {
+    settings.floating_widget_enabled
+        && match trigger {
+            WidgetDisplayTrigger::Minimize => settings.floating_widget_on_minimize,
+            WidgetDisplayTrigger::CloseToTray => {
+                settings.min_to_tray_on_close && settings.floating_widget_on_close
+            }
+        }
+}
+
+pub fn has_active_widget_trigger(settings: &Settings) -> bool {
+    !settings.floating_widget_enabled
+        || settings.floating_widget_on_minimize
+        || (settings.min_to_tray_on_close && settings.floating_widget_on_close)
+}
+
+pub fn widget_trigger_repair_setting(settings: &Settings) -> Option<(&'static str, &'static str)> {
+    if has_active_widget_trigger(settings) {
+        None
+    } else {
+        Some(("floating_widget_on_minimize", "true"))
     }
 }
 
@@ -40,15 +70,56 @@ pub fn sync_for_main_window(app: &AppHandle) {
     let minimized = main.is_minimized().unwrap_or(false);
     let settings = load_settings(app);
     let round_type = current_round_type(app);
-    sync_with_state(app, &settings, visible, minimized, &round_type);
+    sync_with_state(
+        app,
+        &settings,
+        WidgetDisplayTrigger::Minimize,
+        visible,
+        minimized,
+        &round_type,
+    );
 }
 
-pub fn show_if_enabled(app: &AppHandle) {
+pub fn sync_for_main_window_minimize_event(app: &AppHandle) {
+    let Some(main) = app.get_webview_window("main") else {
+        return;
+    };
+    let minimized = main.is_minimized().unwrap_or(false);
+    if !should_sync_for_focus_loss(minimized) {
+        return;
+    }
+
+    let visible = main.is_visible().unwrap_or(false);
+    let settings = load_settings(app);
+    let round_type = current_round_type(app);
+    sync_with_state(
+        app,
+        &settings,
+        WidgetDisplayTrigger::Minimize,
+        visible,
+        minimized,
+        &round_type,
+    );
+}
+
+pub fn should_sync_for_focus_loss(main_minimized: bool) -> bool {
+    main_minimized
+}
+
+pub fn show_for_minimize(app: &AppHandle) {
+    show_for_trigger(app, WidgetDisplayTrigger::Minimize);
+}
+
+pub fn show_for_close_to_tray(app: &AppHandle) {
+    show_for_trigger(app, WidgetDisplayTrigger::CloseToTray);
+}
+
+fn show_for_trigger(app: &AppHandle, trigger: WidgetDisplayTrigger) {
     let settings = load_settings(app);
     let round_type = current_round_type(app);
     sync_widget(
         app,
-        widget_visibility_action(settings.floating_widget_enabled, false, false),
+        widget_visibility_action(widget_trigger_enabled(&settings, trigger), false, false),
         effective_always_on_top(
             settings.always_on_top,
             settings.break_always_on_top,
@@ -74,6 +145,7 @@ pub fn sync_always_on_top(app: &AppHandle, settings: &Settings, round_type: &str
 fn sync_with_state(
     app: &AppHandle,
     settings: &Settings,
+    trigger: WidgetDisplayTrigger,
     main_visible: bool,
     main_minimized: bool,
     round_type: &str,
@@ -81,7 +153,7 @@ fn sync_with_state(
     sync_widget(
         app,
         widget_visibility_action(
-            settings.floating_widget_enabled,
+            widget_trigger_enabled(settings, trigger),
             main_visible,
             main_minimized,
         ),
@@ -155,6 +227,74 @@ mod tests {
             widget_visibility_action(true, true, false),
             WidgetVisibilityAction::Hide
         );
+    }
+
+    #[test]
+    fn minimize_trigger_is_enabled_by_default_when_widget_is_enabled() {
+        let settings = Settings {
+            floating_widget_enabled: true,
+            ..Settings::default()
+        };
+
+        assert!(widget_trigger_enabled(&settings, WidgetDisplayTrigger::Minimize));
+        assert!(has_active_widget_trigger(&settings));
+        assert_eq!(widget_trigger_repair_setting(&settings), None);
+    }
+
+    #[test]
+    fn minimize_trigger_can_be_disabled_when_close_trigger_is_active() {
+        let settings = Settings {
+            floating_widget_enabled: true,
+            floating_widget_on_minimize: false,
+            floating_widget_on_close: true,
+            min_to_tray_on_close: true,
+            ..Settings::default()
+        };
+
+        assert!(!widget_trigger_enabled(&settings, WidgetDisplayTrigger::Minimize));
+        assert!(widget_trigger_enabled(&settings, WidgetDisplayTrigger::CloseToTray));
+        assert!(has_active_widget_trigger(&settings));
+        assert_eq!(widget_trigger_repair_setting(&settings), None);
+    }
+
+    #[test]
+    fn close_trigger_requires_close_to_tray() {
+        let settings = Settings {
+            floating_widget_enabled: true,
+            floating_widget_on_minimize: false,
+            floating_widget_on_close: true,
+            min_to_tray_on_close: false,
+            ..Settings::default()
+        };
+
+        assert!(!widget_trigger_enabled(&settings, WidgetDisplayTrigger::CloseToTray));
+        assert!(!has_active_widget_trigger(&settings));
+        assert_eq!(
+            widget_trigger_repair_setting(&settings),
+            Some(("floating_widget_on_minimize", "true"))
+        );
+    }
+
+    #[test]
+    fn widget_requires_at_least_one_active_trigger_when_enabled() {
+        let settings = Settings {
+            floating_widget_enabled: true,
+            floating_widget_on_minimize: false,
+            floating_widget_on_close: false,
+            ..Settings::default()
+        };
+
+        assert!(!has_active_widget_trigger(&settings));
+        assert_eq!(
+            widget_trigger_repair_setting(&settings),
+            Some(("floating_widget_on_minimize", "true"))
+        );
+    }
+
+    #[test]
+    fn focus_loss_sync_only_handles_actual_minimize() {
+        assert!(should_sync_for_focus_loss(true));
+        assert!(!should_sync_for_focus_loss(false));
     }
 
     #[test]

@@ -7,13 +7,14 @@
     checked: boolean;
     description?: string;
     tooltip?: string;
+    disabled?: boolean;
     onclick: () => void;
   }
 
-  let { label, checked, description, tooltip, onclick }: Props = $props();
+  let { label, checked, description, tooltip, disabled = false, onclick }: Props = $props();
 </script>
 
-<button class="row" {onclick}>
+<button class="row" {disabled} {onclick}>
   <span class="text">
     <span class="label"
       >{label}{#if tooltip}<TooltipInfo text={tooltip} />{/if}</span
@@ -43,6 +44,15 @@
 
   .row:hover {
     background: var(--color-hover);
+  }
+
+  .row:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .row:disabled:hover {
+    background: none;
   }
 
   .text {

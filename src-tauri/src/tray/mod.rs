@@ -291,7 +291,7 @@ pub fn create_tray(app: &AppHandle, state: &Arc<TrayState>) {
                         TrayWindowAction::Hide => {
                             log::debug!("[tray] left-click → hide");
                             let _ = window.hide();
-                            widget::show_if_enabled(app);
+                            widget::hide(app);
                         }
                         TrayWindowAction::Restore => {
                             log::debug!("[tray] left-click → show");

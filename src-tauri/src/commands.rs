@@ -85,7 +85,7 @@ pub fn settings_set(
     app: AppHandle,
 ) -> Result<Settings, String> {
     log::debug!("[settings] set {key}={value}");
-    let new_settings = {
+    let mut new_settings = {
         let conn = db.lock().map_err(|e| e.to_string())?;
         settings::save_setting(&conn, &key, &value).map_err(|e| {
             log::error!("[settings] failed to save '{key}': {e}");
@@ -103,6 +103,11 @@ pub fn settings_set(
             e.to_string()
         })?
     };
+    if let Some((repair_key, repair_value)) = widget::widget_trigger_repair_setting(&new_settings) {
+        let conn = db.lock().map_err(|e| e.to_string())?;
+        settings::save_setting(&conn, repair_key, repair_value).map_err(|e| e.to_string())?;
+        new_settings = settings::load(&conn).map_err(|e| e.to_string())?;
+    }
 
     // Apply verbose_logging change immediately without a restart.
     if key == "verbose_logging" {
@@ -144,7 +149,13 @@ pub fn settings_set(
         }
     }
 
-    if key == "floating_widget_enabled" {
+    if matches!(
+        key.as_str(),
+        "floating_widget_enabled"
+            | "floating_widget_on_minimize"
+            | "floating_widget_on_close"
+            | "min_to_tray_on_close"
+    ) {
         widget::sync_for_main_window(&app);
     }
 
@@ -401,7 +412,7 @@ pub fn window_set_visibility(visible: bool, app: AppHandle) -> Result<(), String
             .get_webview_window("main")
             .ok_or_else(|| "main window not found".to_string())?;
         window.hide().map_err(|e| e.to_string())?;
-        widget::show_if_enabled(&app);
+        widget::show_for_minimize(&app);
     }
     Ok(())
 }
@@ -425,7 +436,7 @@ pub fn window_minimize_or_hide(db: State<'_, DbState>, app: AppHandle) -> Result
     } else {
         window.minimize().map_err(|e| e.to_string())?;
     }
-    widget::show_if_enabled(&app);
+    widget::show_for_minimize(&app);
     Ok(())
 }
 

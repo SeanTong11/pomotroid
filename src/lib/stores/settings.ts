@@ -17,6 +17,8 @@ const defaults: Settings = {
   min_to_tray: false,
   min_to_tray_on_close: false,
   floating_widget_enabled: false,
+  floating_widget_on_minimize: true,
+  floating_widget_on_close: false,
   notifications_enabled: false,
   always_on_top: false,
   break_always_on_top: false,

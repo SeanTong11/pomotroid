@@ -336,7 +336,7 @@ pub fn run() {
                         if hide {
                             api.prevent_close();
                             let _ = win_for_close.hide();
-                            widget::show_if_enabled(&app_for_close);
+                            widget::show_for_close_to_tray(&app_for_close);
                         } else {
                             // Main window is truly closing — close child windows if open.
                             for label in ["settings", "stats", widget::WIDGET_LABEL] {
@@ -372,7 +372,7 @@ pub fn run() {
                             // minimized flag, so delay briefly before syncing the
                             // widget from is_minimized().
                             tokio::time::sleep(std::time::Duration::from_millis(120)).await;
-                            widget::sync_for_main_window(&app_for_focus);
+                            widget::sync_for_main_window_minimize_event(&app_for_focus);
                         });
                     }
                     _ => {}

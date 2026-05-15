@@ -39,6 +39,15 @@
   const selectedLabel = $derived(
     LANGUAGES.find((l) => l.value === $settings.language)?.label ?? 'Auto'
   );
+  const widgetCloseTriggerActive = $derived(
+    $settings.min_to_tray_on_close && $settings.floating_widget_on_close
+  );
+  const lockWidgetMinimizeTrigger = $derived(
+    $settings.floating_widget_on_minimize && !widgetCloseTriggerActive
+  );
+  const lockWidgetCloseTrigger = $derived(
+    widgetCloseTriggerActive && !$settings.floating_widget_on_minimize
+  );
 
   async function selectLanguage(value: string) {
     langOpen = false;
@@ -228,6 +237,24 @@
     checked={$settings.floating_widget_enabled}
     onclick={() => toggle('floating_widget_enabled', $settings.floating_widget_enabled)}
   />
+  {#if $settings.floating_widget_enabled}
+    <SettingsToggle
+      label={m.system_toggle_widget_on_minimize()}
+      description={m.system_toggle_widget_on_minimize_desc()}
+      checked={$settings.floating_widget_on_minimize}
+      disabled={lockWidgetMinimizeTrigger}
+      onclick={() => toggle('floating_widget_on_minimize', $settings.floating_widget_on_minimize)}
+    />
+    {#if $settings.min_to_tray_on_close}
+      <SettingsToggle
+        label={m.system_toggle_widget_on_close()}
+        description={m.system_toggle_widget_on_close_desc()}
+        checked={$settings.floating_widget_on_close}
+        disabled={lockWidgetCloseTrigger}
+        onclick={() => toggle('floating_widget_on_close', $settings.floating_widget_on_close)}
+      />
+    {/if}
+  {/if}
 
   <SettingsToggle
     label={m.system_toggle_aot()}

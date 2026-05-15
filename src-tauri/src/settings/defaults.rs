@@ -13,6 +13,8 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("min_to_tray", "false"),
     ("min_to_tray_on_close", "false"),
     ("floating_widget_enabled", "false"),
+    ("floating_widget_on_minimize", "true"),
+    ("floating_widget_on_close", "false"),
     ("notifications", "false"),
     ("work_rounds", "4"),
     ("dial_countdown", "true"),
