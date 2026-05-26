@@ -168,8 +168,8 @@
 <main
   class={`widget ${roundClass}`}
   class:hovered
-  onmouseenter={() => (hovered = true)}
-  onmouseleave={() => (hovered = false)}
+  onpointerenter={() => (hovered = true)}
+  onpointerleave={() => (hovered = false)}
   onmousedown={startDrag}
   ondblclick={onDoubleClick}
 >
@@ -198,16 +198,18 @@
       </button>
 
       <button class="primary" onclick={timerToggle} aria-label={snap.is_running ? 'Pause' : 'Play'}>
-        {#if snap.is_running}
-          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="5" y="3" width="5" height="18" rx="1.5" fill="currentColor" />
-            <rect x="14" y="3" width="5" height="18" rx="1.5" fill="currentColor" />
-          </svg>
-        {:else}
-          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-            <polygon points="5,3 21,12 5,21" fill="currentColor" />
-          </svg>
-        {/if}
+        <span class="primary-surface">
+          {#if snap.is_running}
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="3" width="5" height="18" rx="1.5" fill="currentColor" />
+              <rect x="14" y="3" width="5" height="18" rx="1.5" fill="currentColor" />
+            </svg>
+          {:else}
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+              <polygon points="5,3 21,12 5,21" fill="currentColor" />
+            </svg>
+          {/if}
+        </span>
       </button>
 
       <button class="side" onclick={timerSkip} aria-label="Skip round">
@@ -251,8 +253,6 @@
     place-items: center;
     color: var(--color-foreground);
     cursor: default;
-    filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.45));
-    transition: filter 0.18s ease;
   }
 
   .round-short-break {
@@ -271,6 +271,13 @@
     overflow: visible;
   }
 
+  .dial,
+  .content,
+  .controls,
+  .round-mark {
+    will-change: opacity, transform;
+  }
+
   .track,
   .progress {
     fill: none;
@@ -283,6 +290,7 @@
 
   .progress {
     stroke: var(--round-color);
+    filter: none;
     stroke-linecap: round;
     transform: rotate(-90deg);
     transform-origin: 80px 80px;
@@ -291,6 +299,7 @@
       stroke-dashoffset 0.5s ease;
   }
 
+  .widget:hover .progress,
   .hovered .progress {
     opacity: 0.45;
   }
@@ -314,19 +323,16 @@
     line-height: 1;
     color: var(--time-color);
     text-shadow:
-      0 1px 1px rgb(0 0 0 / 0.32),
-      0 0 1px rgb(0 0 0 / 0.2);
-    transform: translateY(0);
-    transition:
-      font-size 0.18s ease,
-      margin 0.18s ease,
-      transform 0.18s ease;
+      0 1px 1px rgb(0 0 0 / 0.36),
+      0 0 2px rgb(0 0 0 / 0.32);
+    transform: translateY(0) scale(1);
+    transition: transform 0.18s ease;
+    will-change: transform;
   }
 
+  .widget:hover .time,
   .hovered .time {
-    font-size: 1.05rem;
-    margin-bottom: 10px;
-    transform: translateY(-7px);
+    transform: translateY(-11px) scale(0.68);
   }
 
   .round-mark {
@@ -359,6 +365,7 @@
     mask: url('/icons/widget/coffee.svg') center / contain no-repeat;
   }
 
+  .widget:hover .round-mark,
   .hovered .round-mark {
     opacity: 0;
     transform: translateY(5px) scale(0.94);
@@ -372,12 +379,16 @@
     gap: 10px;
     opacity: 0;
     pointer-events: none;
-    transform: translateY(8px) scale(0.96);
+    min-width: 122px;
+    min-height: 44px;
+    justify-content: center;
+    transform: translateY(8px) scale(0.98);
     transition:
       opacity 0.18s ease,
       transform 0.18s ease;
   }
 
+  .widget:hover .controls,
   .hovered .controls {
     opacity: 1;
     pointer-events: auto;
@@ -386,16 +397,22 @@
 
   button {
     border: none;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     color: var(--color-foreground);
     text-shadow: none;
+    background: transparent;
     transition:
       transform 0.12s ease,
       color 0.12s ease,
       background 0.12s ease;
+  }
+
+  button svg {
+    pointer-events: none;
   }
 
   button:hover {
@@ -403,8 +420,8 @@
   }
 
   .side {
-    width: 24px;
-    height: 24px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: transparent;
     color: var(--side-color);
@@ -418,11 +435,23 @@
   }
 
   .primary {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    color: white;
+  }
+
+  .primary-surface {
     width: 32px;
     height: 32px;
     border-radius: 50%;
     background: var(--round-color);
-    color: white;
-    box-shadow: 0 2px 5px rgb(0 0 0 / 0.18);
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.22),
+      0 0 0 1px rgb(255 255 255 / 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
   }
 </style>
