@@ -39,6 +39,14 @@
     e.stopPropagation();
   }
 
+  function onPrimaryPointerDown(e: PointerEvent) {
+    if (e.button !== 0) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    timerToggle();
+  }
+
   async function showContextMenu(e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -197,7 +205,12 @@
         </svg>
       </button>
 
-      <button class="primary" onclick={timerToggle} aria-label={snap.is_running ? 'Pause' : 'Play'}>
+      <button
+        class="primary"
+        type="button"
+        onpointerdown={onPrimaryPointerDown}
+        aria-label={snap.is_running ? 'Pause' : 'Play'}
+      >
         {#if snap.is_running}
           <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
             <rect x="5" y="3" width="5" height="18" rx="1.5" fill="currentColor" />
@@ -371,7 +384,6 @@
     align-items: center;
     gap: 10px;
     opacity: 0;
-    pointer-events: none;
     transform: translateY(8px) scale(0.96);
     transition:
       opacity 0.18s ease,
@@ -380,12 +392,13 @@
 
   .hovered .controls {
     opacity: 1;
-    pointer-events: auto;
     transform: translateY(0) scale(1);
   }
 
   button {
     border: none;
+    box-sizing: border-box;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -396,6 +409,10 @@
       transform 0.12s ease,
       color 0.12s ease,
       background 0.12s ease;
+  }
+
+  button svg {
+    pointer-events: none;
   }
 
   button:hover {
@@ -409,6 +426,11 @@
     background: transparent;
     color: var(--side-color);
     opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .hovered .side {
+    pointer-events: auto;
   }
 
   .side:hover {
