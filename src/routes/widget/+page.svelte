@@ -351,6 +351,7 @@
     align-items: center;
     justify-content: center;
     opacity: 1;
+    pointer-events: none;
     transform: translateY(0) scale(1);
     transition:
       opacity 0.16s ease,
