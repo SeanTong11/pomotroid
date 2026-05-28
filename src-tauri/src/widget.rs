@@ -3,6 +3,7 @@ use tauri::{AppHandle, Manager};
 use crate::db::DbState;
 use crate::settings::{self, Settings};
 use crate::timer::TimerController;
+use crate::window as app_window;
 
 pub const WIDGET_LABEL: &str = "widget";
 
@@ -134,11 +135,15 @@ pub fn hide(app: &AppHandle) {
 
 pub fn sync_always_on_top(app: &AppHandle, settings: &Settings, round_type: &str) {
     if let Some(widget) = app.get_webview_window(WIDGET_LABEL) {
-        let _ = widget.set_always_on_top(effective_always_on_top(
-            settings.always_on_top,
-            settings.break_always_on_top,
-            round_type,
-        ));
+        app_window::set_always_on_top(
+            &widget,
+            effective_always_on_top(
+                settings.always_on_top,
+                settings.break_always_on_top,
+                round_type,
+            ),
+            "widget",
+        );
     }
 }
 
@@ -170,12 +175,13 @@ fn sync_widget(app: &AppHandle, action: WidgetVisibilityAction, always_on_top: b
         return;
     };
 
-    let _ = widget.set_always_on_top(always_on_top);
     match action {
         WidgetVisibilityAction::Show => {
             let _ = widget.show();
+            app_window::set_always_on_top(&widget, always_on_top, "widget");
         }
         WidgetVisibilityAction::Hide => {
+            app_window::set_always_on_top(&widget, false, "widget");
             let _ = widget.hide();
         }
     }

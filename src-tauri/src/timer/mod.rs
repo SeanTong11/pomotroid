@@ -13,6 +13,7 @@ use crate::settings::Settings;
 use crate::tray::{self, TrayState};
 use crate::websocket::{self, WsState};
 use crate::widget;
+use crate::window as app_window;
 
 use engine::{EngineHandle, TimerCommand, TimerEvent};
 use sequence::{RoundType, SequenceState};
@@ -370,7 +371,7 @@ fn listen_events(
                     next_round_type,
                 );
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.set_always_on_top(effective_always_on_top);
+                    app_window::set_always_on_top(&window, effective_always_on_top, "main");
                 }
                 widget::sync_always_on_top(&app, &settings_snapshot, next_round_type);
 

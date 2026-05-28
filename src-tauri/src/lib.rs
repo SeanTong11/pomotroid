@@ -283,7 +283,7 @@ pub fn run() {
 
             // Apply always-on-top from saved settings on startup.
             if initial_settings.always_on_top {
-                let _ = main_window.set_always_on_top(true);
+                crate::window::set_always_on_top(&main_window, true, "main");
             }
 
             // Restore saved window position/size if all four values are present and

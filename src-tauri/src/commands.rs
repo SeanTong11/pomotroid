@@ -144,7 +144,7 @@ pub fn settings_set(
             let is_break = snap.round_type != "work";
             let effective_aot = new_settings.always_on_top
                 && !(new_settings.break_always_on_top && is_break);
-            let _ = window.set_always_on_top(effective_aot);
+            app_window::set_always_on_top(&window, effective_aot, "main");
             widget::sync_always_on_top(&app, &new_settings, &snap.round_type);
         }
     }
