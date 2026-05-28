@@ -23,6 +23,7 @@
   import { setLocale } from '$lib/locale.svelte.js';
 
   const CIRCUMFERENCE = 2 * Math.PI * 60;
+  const HOVER_RADIUS = 72;
 
   let hovered = $state(false);
   let snap = $derived($timerState);
@@ -37,6 +38,20 @@
 
   function onControlPointer(e: MouseEvent) {
     e.stopPropagation();
+  }
+
+  function updateWidgetHover(e: PointerEvent) {
+    const el = e.currentTarget;
+    if (!(el instanceof HTMLElement)) return;
+
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    hovered = x * x + y * y <= HOVER_RADIUS * HOVER_RADIUS;
+  }
+
+  function clearWidgetHover() {
+    hovered = false;
   }
 
   function onPrimaryPointerDown(e: PointerEvent) {
@@ -176,8 +191,9 @@
 <main
   class={`widget ${roundClass}`}
   class:hovered
-  onmouseenter={() => (hovered = true)}
-  onmouseleave={() => (hovered = false)}
+  onpointerenter={updateWidgetHover}
+  onpointermove={updateWidgetHover}
+  onpointerleave={clearWidgetHover}
   onmousedown={startDrag}
   ondblclick={onDoubleClick}
 >
@@ -264,8 +280,6 @@
     place-items: center;
     color: var(--color-foreground);
     cursor: default;
-    filter: drop-shadow(0 2px 4px rgb(0 0 0 / 0.45));
-    transition: filter 0.18s ease;
   }
 
   .round-short-break {
@@ -407,17 +421,12 @@
     color: var(--color-foreground);
     text-shadow: none;
     transition:
-      transform 0.12s ease,
       color 0.12s ease,
       background 0.12s ease;
   }
 
   button svg {
     pointer-events: none;
-  }
-
-  button:hover {
-    transform: translateY(-1px);
   }
 
   .side {
