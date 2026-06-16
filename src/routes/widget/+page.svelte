@@ -396,11 +396,10 @@
     font-weight: 600;
     font-stretch: 85%;
     line-height: 1;
-    color: var(--time-color);
-    text-shadow:
-      0 0 3px rgb(255 255 255 / 0.9),
-      0 1px 1px rgb(0 0 0 / 0.58),
-      0 2px 4px rgb(0 0 0 / 0.42);
+    color: rgb(255 255 255 / 0.94);
+    -webkit-text-stroke: 1px rgb(0 0 0 / 0.62);
+    paint-order: stroke fill;
+    text-shadow: 0 1px 1px rgb(0 0 0 / 0.45);
     transform: translateY(0);
     transition:
       font-size 0.18s ease,
