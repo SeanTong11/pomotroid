@@ -4,6 +4,7 @@
   import type { UnlistenFn } from '@tauri-apps/api/event';
   import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu';
   import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+  import { cursorPosition } from '@tauri-apps/api/window';
   import {
     appExit,
     getSettings,
@@ -28,10 +29,13 @@
   // Keep hover affordances inside the painted ring. The transparent Tauri
   // window is still rectangular, so this guards only widget UI state.
   const HOVER_RADIUS = DIAL_RADIUS + DIAL_STROKE_WIDTH / 2;
+  const CURSOR_POLL_MS = 80;
 
   let hovered = $state(false);
   let snap = $derived($timerState);
   let widgetEl: HTMLElement | undefined;
+  let cursorPassthrough = false;
+  const widgetWindow = getCurrentWebviewWindow();
 
   let remaining = $derived(Math.max(0, snap.total_secs - snap.elapsed_secs));
   let minutes = $derived(Math.floor(remaining / 60));
@@ -54,12 +58,45 @@
     return x * x + y * y <= HOVER_RADIUS * HOVER_RADIUS;
   }
 
+  async function setCursorPassthrough(ignore: boolean) {
+    if (cursorPassthrough === ignore) return;
+    cursorPassthrough = ignore;
+    try {
+      await widgetWindow.setIgnoreCursorEvents(ignore);
+    } catch {
+      cursorPassthrough = !ignore;
+    }
+  }
+
+  async function syncCursorPassthrough() {
+    const rect = widgetEl?.getBoundingClientRect();
+    if (!rect) return;
+
+    try {
+      const [cursor, pos, size] = await Promise.all([
+        cursorPosition(),
+        widgetWindow.outerPosition(),
+        widgetWindow.outerSize(),
+      ]);
+      const scale = size.width / rect.width;
+      const x = cursor.x - pos.x - size.width / 2;
+      const y = cursor.y - pos.y - size.height / 2;
+      const radius = HOVER_RADIUS * scale;
+      await setCursorPassthrough(x * x + y * y > radius * radius);
+    } catch {
+      await setCursorPassthrough(false);
+    }
+  }
+
   function updateWidgetHover(e: PointerEvent) {
-    hovered = isWidgetPointerHit(e);
+    const hit = isWidgetPointerHit(e);
+    hovered = hit;
+    void setCursorPassthrough(!hit);
   }
 
   function clearWidgetHover() {
     hovered = false;
+    void setCursorPassthrough(true);
   }
 
   function onPrimaryPointerDown(e: PointerEvent) {
@@ -139,6 +176,10 @@
 
   onMount(() => {
     const cleanups: UnlistenFn[] = [];
+    const cursorPoll = window.setInterval(() => {
+      void syncCursorPassthrough();
+    }, CURSOR_POLL_MS);
+    void syncCursorPassthrough();
 
     (async () => {
       const s = await getSettings();
@@ -193,6 +234,8 @@
     })();
 
     return () => {
+      window.clearInterval(cursorPoll);
+      void setCursorPassthrough(false);
       for (const fn of cleanups) fn();
     };
   });

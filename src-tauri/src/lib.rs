@@ -479,6 +479,10 @@ mod tests {
         let widget_permissions = capability_permissions("widget capability", widget_raw);
         assert!(widget_permissions.contains(&"core:event:allow-listen".to_string()));
         assert!(widget_permissions.contains(&"core:event:allow-unlisten".to_string()));
+        assert!(widget_permissions.contains(&"core:window:allow-cursor-position".to_string()));
+        assert!(widget_permissions.contains(&"core:window:allow-outer-position".to_string()));
+        assert!(widget_permissions.contains(&"core:window:allow-outer-size".to_string()));
+        assert!(widget_permissions.contains(&"core:window:allow-set-ignore-cursor-events".to_string()));
         assert!(widget_permissions.contains(&"core:window:allow-start-dragging".to_string()));
         assert!(widget_permissions.contains(&"core:menu:allow-new".to_string()));
         assert!(widget_permissions.contains(&"core:menu:allow-popup".to_string()));

@@ -6,6 +6,10 @@
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
+    "core:window:allow-cursor-position",
+    "core:window:allow-outer-position",
+    "core:window:allow-outer-size",
+    "core:window:allow-set-ignore-cursor-events",
     "core:window:allow-start-dragging",
     "core:menu:allow-new",
     "core:menu:allow-popup"
