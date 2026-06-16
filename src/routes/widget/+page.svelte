@@ -31,6 +31,7 @@
 
   let hovered = $state(false);
   let snap = $derived($timerState);
+  let widgetEl: HTMLElement | undefined;
 
   let remaining = $derived(Math.max(0, snap.total_secs - snap.elapsed_secs));
   let minutes = $derived(Math.floor(remaining / 60));
@@ -44,14 +45,17 @@
     e.stopPropagation();
   }
 
-  function updateWidgetHover(e: PointerEvent) {
-    const el = e.currentTarget;
-    if (!(el instanceof HTMLElement)) return;
+  function isWidgetPointerHit(e: MouseEvent | PointerEvent) {
+    const rect = widgetEl?.getBoundingClientRect();
+    if (!rect) return false;
 
-    const rect = el.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
-    hovered = x * x + y * y <= HOVER_RADIUS * HOVER_RADIUS;
+    return x * x + y * y <= HOVER_RADIUS * HOVER_RADIUS;
+  }
+
+  function updateWidgetHover(e: PointerEvent) {
+    hovered = isWidgetPointerHit(e);
   }
 
   function clearWidgetHover() {
@@ -67,6 +71,8 @@
   }
 
   async function showContextMenu(e: MouseEvent) {
+    if (!isWidgetPointerHit(e)) return;
+
     e.preventDefault();
     e.stopPropagation();
 
@@ -115,12 +121,15 @@
 
   async function startDrag(e: MouseEvent) {
     if (e.button !== 0 || e.detail !== 1) return;
+    if (!isWidgetPointerHit(e)) return;
     if ((e.target as HTMLElement).closest('button')) return;
 
     await getCurrentWebviewWindow().startDragging();
   }
 
   async function onDoubleClick(e: MouseEvent) {
+    if (!isWidgetPointerHit(e)) return;
+
     const target = e.target;
     if (target instanceof Element && target.closest('button')) return;
 
@@ -193,6 +202,7 @@
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <main
+  bind:this={widgetEl}
   class={`widget ${roundClass}`}
   class:hovered
   onpointerenter={updateWidgetHover}
