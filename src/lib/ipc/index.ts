@@ -4,6 +4,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { open as dialogOpen } from '@tauri-apps/plugin-dialog';
+import { invokeWhenBackendReady } from '$lib/utils/startupRetry';
 import type {
   TimerState,
   Settings,
@@ -20,11 +21,12 @@ export const timerToggle = () => invoke<void>('timer_toggle');
 export const timerReset = () => invoke<void>('timer_reset');
 export const timerRestartRound = () => invoke<void>('timer_restart_round');
 export const timerSkip = () => invoke<void>('timer_skip');
-export const getTimerState = () => invoke<TimerState>('timer_get_state');
+export const getTimerState = () =>
+  invokeWhenBackendReady(() => invoke<TimerState>('timer_get_state'));
 
 // --- Settings commands ---
 
-export const getSettings = () => invoke<Settings>('settings_get');
+export const getSettings = () => invokeWhenBackendReady(() => invoke<Settings>('settings_get'));
 /** Save a single setting key/value pair and receive the full updated settings. */
 export const setSetting = (key: string, value: string) =>
   invoke<Settings>('settings_set', { key, value });
