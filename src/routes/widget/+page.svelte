@@ -22,8 +22,10 @@
   import { syncTimerState } from '$lib/utils/timerStateSync';
   import { setLocale } from '$lib/locale.svelte.js';
 
-  const CIRCUMFERENCE = 2 * Math.PI * 60;
-  const HOVER_RADIUS = 72;
+  const DIAL_RADIUS = 60;
+  const DIAL_STROKE_WIDTH = 6;
+  const CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS;
+  const HOVER_RADIUS = DIAL_RADIUS + DIAL_STROKE_WIDTH / 2;
 
   let hovered = $state(false);
   let snap = $derived($timerState);
@@ -198,12 +200,13 @@
   ondblclick={onDoubleClick}
 >
   <svg class="dial" viewBox="0 0 160 160" aria-hidden="true">
-    <circle class="track" cx="80" cy="80" r="60" />
+    <circle class="track" cx="80" cy="80" r={DIAL_RADIUS} stroke-width={DIAL_STROKE_WIDTH} />
     <circle
       class="progress"
       cx="80"
       cy="80"
-      r="60"
+      r={DIAL_RADIUS}
+      stroke-width={DIAL_STROKE_WIDTH}
       stroke-dasharray={CIRCUMFERENCE}
       stroke-dashoffset={dashOffset}
     />
@@ -301,7 +304,6 @@
   .track,
   .progress {
     fill: none;
-    stroke-width: 6;
   }
 
   .track {
