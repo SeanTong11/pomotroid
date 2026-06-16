@@ -355,8 +355,9 @@
     line-height: 1;
     color: var(--time-color);
     text-shadow:
-      0 1px 1px rgb(0 0 0 / 0.32),
-      0 0 1px rgb(0 0 0 / 0.2);
+      0 0 3px rgb(255 255 255 / 0.9),
+      0 1px 1px rgb(0 0 0 / 0.58),
+      0 2px 4px rgb(0 0 0 / 0.42);
     transform: translateY(0);
     transition:
       font-size 0.18s ease,
