@@ -25,6 +25,8 @@
   const DIAL_RADIUS = 60;
   const DIAL_STROKE_WIDTH = 6;
   const CIRCUMFERENCE = 2 * Math.PI * DIAL_RADIUS;
+  // Keep hover affordances inside the painted ring. The transparent Tauri
+  // window is still rectangular, so this guards only widget UI state.
   const HOVER_RADIUS = DIAL_RADIUS + DIAL_STROKE_WIDTH / 2;
 
   let hovered = $state(false);

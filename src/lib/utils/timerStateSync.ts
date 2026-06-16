@@ -14,6 +14,7 @@ interface TimerStateSyncOptions {
   onRoundChange?: (snap: TimerState) => void;
 }
 
+/** Hydrate the shared timer store and subscribe to all timer lifecycle events. */
 export async function syncTimerState(options: TimerStateSyncOptions = {}): Promise<UnlistenFn[]> {
   const initial = await getTimerState();
   timerState.set(initial);

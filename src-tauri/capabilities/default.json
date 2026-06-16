@@ -17,8 +17,6 @@
     "core:window:allow-is-maximized",
     "core:window:allow-set-fullscreen",
     "core:window:allow-is-fullscreen",
-    "core:menu:allow-new",
-    "core:menu:allow-popup",
     "opener:default",
     "dialog:default",
     "dialog:allow-open",

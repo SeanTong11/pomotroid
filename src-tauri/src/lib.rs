@@ -467,6 +467,11 @@ mod tests {
 
         let default_windows = capability_windows("default capability", default_raw);
         assert!(!default_windows.iter().any(|w| w == "widget"));
+        let default_permissions = capability_permissions("default capability", default_raw);
+        assert!(
+            !default_permissions.iter().any(|p| p.starts_with("core:menu:")),
+            "default capability must not include frontend menu permissions"
+        );
 
         let widget_windows = capability_windows("widget capability", widget_raw);
         assert_eq!(widget_windows, vec!["widget"]);
